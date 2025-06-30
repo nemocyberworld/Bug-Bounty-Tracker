@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bug Hunting Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
+    <!-- Checklist Sidebar -->
+    <aside class="md:col-span-1 bg-white p-4 rounded shadow overflow-y-scroll h-screen">
+      <h2 class="text-xl font-bold mb-2">🔍 Bug Bounty Web Checklist</h2>
+      <div id="checklist" class="text-sm space-y-1"></div>
+      <button onclick="saveChecklist()" class="mt-4 bg-blue-500 hover:bg-blue-600 transition text-white px-4 py-2 rounded">Save Progress</button>
+    </aside>
+
+    <!-- Main Tracker -->
+    <main class="md:col-span-2 bg-white p-4 rounded shadow">
+      <h1 class="text-2xl font-bold mb-4">🕵️ Bug Hunting Tracker</h1>
+      <div class="mb-4">
+        <input id="bugTitle" type="text" placeholder="Vulnerability Title" class="border rounded px-4 py-2 w-full mb-2" />
+        <textarea id="bugDescription" placeholder="Details, payloads, etc." class="border rounded px-4 py-2 w-full mb-2" rows="3"></textarea>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="addBug()" class="bg-blue-600 hover:bg-blue-700 transition text-white px-4 py-2 rounded">Add Finding</button>
+          <button onclick="exportBugs()" class="bg-green-600 hover:bg-green-700 transition text-white px-4 py-2 rounded">Export</button>
+          <label class="bg-yellow-500 hover:bg-yellow-600 transition text-white px-4 py-2 rounded cursor-pointer">
+            Import <input type="file" class="hidden" onchange="importBugs(event)">
+          </label>
+          <button onclick="resetTested()" class="bg-gray-600 hover:bg-gray-700 transition text-white px-4 py-2 rounded">Reset Progress</button>
+          <button onclick="clearAll()" class="bg-red-600 hover:bg-red-700 transition text-white px-4 py-2 rounded">Clear All</button>
+        </div>
+      </div>
+      <div id="bugsContainer" class="space-y-4"></div>
+    </main>
+
+    <!-- Notes Sidebar -->
+    <aside class="md:col-span-1 bg-white p-4 rounded shadow h-screen overflow-y-scroll">
+      <h2 class="text-xl font-bold mb-2">🗒️ Notes, Links & Ideas</h2>
+      <textarea placeholder="Add your notes, ideas, or links here..." class="w-full h-64 border p-2 rounded" id="notesBox"></textarea>
+      <button onclick="saveNotes()" class="mt-2 bg-blue-500 hover:bg-blue-600 transition text-white px-4 py-2 rounded">Save Notes</button>
+      <div class="mt-4">
+        <h3 class="text-lg font-semibold mb-2">🛠️ Automation Tools</h3>
+        <ul class="list-disc list-inside text-sm space-y-1">
+          <li>Subfinder / Amass (Subdomain Enumeration)</li>
+          <li>ffuf / dirsearch (Directory Fuzzing)</li>
+          <li>Waybackurls / gau / hakrawler</li>
+          <li>gf / qsreplace / uro (Pattern & Param Extraction)</li>
+          <li>httpx / nuclei (Recon & Template Scanning)</li>
+          <li>dalfox / XSStrike (XSS Automation)</li>
+          <li>sqlmap / NoSQLMap (SQLi / NoSQLi)</li>
+          <li>kiterunner / Arjun (Parameter Discovery)</li>
+          <li>interlace / reconftw / reconbot (Automation Wrappers)</li>
+          <li>dnsx / massdns (DNS Resolution)</li>
+          <li>crt.sh / wayback / archive.org (Passive Sources)</li>
+          <li>Burp Suite Extensions (Autorize, Turbo Intruder)</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const checklistItems = [
+      "🛰️ Reconnaissance",
+      "Subdomain Enumeration (amass, subfinder, crt.sh)",
+      "Port Scanning (nmap, rustscan)",
+      "Directory Bruteforcing (ffuf, dirsearch)",
+      "Wayback Machine / Archive Recon",
+      "JS File Analysis (endpoints, keys, secrets)",
+      "Content Discovery (robots.txt, sitemap.xml)",
+      "Dorks (Google, Github, Shodan, Censys)",
+      "WHOIS & DNS Recon",
+      "DNS Zone Transfers",
+      "URLextractor",
+      "📢 Information Disclosure",
+    "Debug messages in responses",
+    "Leaked .git/ directory",
+    "Leaked .env file",
+    "Stack trace on exception",
+    "Verbose error messages",
+    "Sensitive info in robots.txt",
+    "Exposed backup files (.bak, .old, .zip)",
+    "API keys in JavaScript files",
+    "Internal IPs in response headers",
+    "Credit card info in logs",
+    "Misconfigured GitHub repo (public leaks)",
+    "Environment variables in response body",
+    "Exposed Sentry / monitoring logs",
+    "Source maps exposed in production",
+    "Leaked memory dumps",
+    "User tokens in HTML comments",
+    "Full path disclosure",
+    "Version disclosure via headers",
+    "Sensitive data in Referer headers",
+    "Email/password pairs in export files",
+
+    "🔐 Authentication",
+    "Brute Force Login",
+    "2FA Bypass",
+    "No rate limiting on login",
+    "Missing account lockout",
+    "User enumeration on login",
+    "Reusable password reset token",
+    "Reset link doesn't expire",
+    "Password reset sent to admin email",
+    "Weak password policy",
+    "2FA bypass via fallback method",
+    "Session not invalidated after password change",
+    "Session fixation",
+    "Insecure \"remember me\" token",
+    "OAuth login without reauthentication",
+    "Open registration to admin role",
+    "Predictable password reset tokens",
+    "Public registration for internal application",
+    "Bypassing login with null/empty password",
+    "Fallback login method enabled (e.g., SSH)",
+    "Login allowed with unverified email",
+    "Reset token leaked in Referer header",
+    "Session ID exposed in URL",
+
+    "🛂 Authorization",
+    "IDOR (Insecure Direct Object Reference)",
+    "Accessing others’ data via UUID guessing",
+    "Horizontal Privilege Escalation",
+    "Vertical Privilege Escalation",
+    "No access control on sensitive endpoints",
+    "Admin-only feature accessible by normal users",
+    "Misconfigured feature toggles",
+    "Changing roles via PUT/POST body",
+    "Accessing data by changing GraphQL ID",
+    "JWT with upgradable role claims",
+    "Tampering group ID to escalate privileges",
+    "Misconfigured middleware (e.g., no auth check)",
+    "Authorization missing in async jobs",
+    "Lack of validation in frontend",
+    "Bypass auth using mobile API endpoints",
+    "Auth enforced only via UI",
+    "Disclosure of access control matrix",
+    "Local file request bypasses proxy RBAC",
+    "Wildcard permissions misused",
+    "Access via soft-deleted accounts",
+
+    "💉 Input Validation",
+    "1. Cross Site Scripting (XSS)",
+    "Reflected XSS",
+    "Stored XSS",
+    "DOM-based XSS",
+    "XSS in file name",
+    "SVG upload with JavaScript",
+    "XSS in redirect URL",
+    "XSS in JSON response",
+    "XSS in markdown renderer",
+    "XSS in PDF export",
+    "XSS in 404 page",
+    "Payload in document.write",
+    "CSP bypass",
+    "Legacy browser XSS vector",
+    "Drag-and-drop XSS",
+    "XSS via input autofill",
+    "Mutation XSS in React",
+    "Unescaped template variables",
+    "XSS in <title> tag (tabnabbing)",
+    "XSS via email field",
+    "Nested JSON XSS",
+
+    "2. Injection Attacks",
+    "SQL Injection (classic)",
+    "Blind SQLi (timing-based)",
+    "Second-order SQLi",
+    "NoSQL Injection (MongoDB)",
+    "Command Injection",
+    "LDAP Injection",
+    "SSTI (Server-Side Template Injection)",
+    "XXE (XML External Entity)",
+    "CRLF Injection",
+    "Log Injection",
+    "Regex DoS",
+    "Host Header Injection",
+    "Code Injection in sandbox",
+    "XPath Injection",
+    "GraphQL Injection",
+    "OS-level injection via file parser",
+    "Deserialization attacks",
+    "PHP object injection",
+    "YAML deserialization",
+    "Dynamic language eval injection",
+
+    "3. Command Injection Types",
+    "Classic Command Injection",
+    "Blind Command Injection",
+    "Time-based Command Injection",
+    "Reverse Shell Injection",
+    "Blind Reverse Shell Injection",
+    "File Injection via Command",
+    "OS Command Injection via Parameter",
+    "Command Injection via Environment Variables",
+    "Injection via Shell Metacharacters (e.g., `;`, `&&`)",
+    "Injection via Pipes and Redirects (e.g., `|`, `>`)",
+    "Injection via Backticks (`` ` ``)",
+    "Injection via $( ) command substitution",
+    "Blind Time-Delay Command Injection",
+
+    "🖥️ Client-Side",
+    "Cross-Site Request Forgery (CSRF)",
+    "CSRF on payment",
+    "CSRF on settings change",
+    "Logout CSRF",
+    "CSRF on password change",
+    "No CSRF token in form",
+    "Misconfigured SameSite attribute",
+    "Referer leakage causes CSRF",
+    "CSRF via mobile endpoints",
+    "CSRF on 2FA toggle",
+    "CSRF + XSS combo",
+    "CORS misused as CSRF protection",
+    "Content-type based CSRF",
+    "JSON CSRF",
+    "No CSRF on multipart upload",
+    "Preflight bypass via GET",
+    "CSRF on profile picture upload",
+    "CSRF in legacy iframe",
+    "Bypass via null origin",
+    "DNS rebinding to trigger CSRF",
+    "Clickjacking",
+    "Clickjacking login iframe",
+
+    "📂 File Handling",
+    "Unrestricted File Upload",
+    "Uploading executable file",
+    "Double extension bypass",
+    "Bypassing MIME type check",
+    "File overwrite",
+    "Uploading with SSRF vector",
+    "LFI via filename",
+    "XSS via uploaded filename",
+    "Upload to web root",
+    "Misconfigured CDN cache",
+    "Polyglot file upload",
+    "Image with malicious EXIF",
+    "RAR/ZIP bombs",
+    "Uploading large file to cause DoS",
+    "Upload with local file path in name",
+    "SVG with embedded JS",
+    "Backup file upload",
+    "Ghostscript RCE via uploaded file",
+    "File upload directory traversal",
+    "Insecure PDF parsing",
+    "Upload bypass via nested multipart",
+    "Path Traversal",
+
+    "📊 Business Logic",
+    "Coupon/Reward Abuse",
+    "Rate Limiting Issues",
+    "Buying product with negative price",
+    "Skipping payment step",
+    "Infinite coupon redemption",
+    "Price manipulation in cart",
+    "Loyalty points fraud",
+    "Refer-a-friend abuse",
+    "Duplicate request = multiple rewards",
+    "Logic flaw in rate limit",
+    "Changing plan without paying",
+    "Gifting subscription bypass",
+    "Inventory bypass",
+    "Uploading same receipt multiple times",
+    "Applying expired discount",
+    "Refund logic abuse",
+    "Abuse of trial periods",
+    "Bonus triggered without conditions met",
+    "OAuth token reuse",
+    "Redeeming coupons on others' accounts",
+    "Buying restricted item as guest",
+    "Flawed voting/rating logic",
+
+    "🧪 Miscellaneous",
+    "Open Redirect",
+    "Server Side Request Forgery (SSRF)",
+    "Subdomain takeover",
+    "Blind SSRF",
+    "DNS rebinding",
+    "Prototype pollution",
+    "WebSocket hijacking",
+    "JWT None algorithm",
+    "JWT unsigned tokens accepted",
+    "Path traversal (../etc/passwd)",
+    "Unrestricted internal redirection",
+    "Broken CAPTCHA bypass",
+    "Cache poisoning",
+    "Host header injection (reset link)",
+    "Misconfigured cronjob leading to RCE",
+    "Publicly accessible S3 bucket",
+    "Desync attack (HTTP Request Smuggling)",
+    "Insecure HTTP method enabled (PUT, TRACE)",
+    "Abuse of X-Forwarded headers",
+    "Webhook injection",
+
+    "🌐 CORS Misconfigurations",
+    "Wildcard origin + credentials",
+    "Unvalidated reflected origin",
+    "CORS on admin panel",
+    "Misconfigured preflight",
+    "Allowed subdomain CORS leak",
+    "JSONP with CORS enabled",
+    "Internal service exposed via CORS",
+    "Cross-origin token access",
+    "Wildcard in Access-Control-Allow-Headers",
+    "Overly permissive CORS on private API",
+    "Unauthenticated endpoints with CORS",
+    "CORS allowed via * but credentials sent",
+    "Origin spoof bypass",
+    "Allowed local origins (localhost)",
+    "Legacy browser CORS bypass",
+    "CORS in error handling endpoint",
+    "Multi-origin bypass",
+    "Malicious iframes triggering CORS",
+    "CORS on logout endpoint",
+    "API key leak via misused CORS",
+
+    "🔗 API Security Testing",
+    "Authentication Bypass",
+    "Broken Object Level Authorization (BOLA)",
+    "Broken Function Level Authorization (BFLA)",
+    "IDOR (Insecure Direct Object Reference)",
+    "Rate Limiting Bypass",
+    "HTTP Method Abuse (GET/POST/PUT/DELETE)",
+    "Mass Assignment",
+    "Sensitive Data Exposure",
+    "Token Leakage (JWT/API Keys)",
+    "Injection Attacks (SQL, NoSQL, Command)",
+    "API Version Exposure",
+    "Verbose Error Messages",
+    "SSRF via API",
+    "CORS Misconfigurations in API",
+    "GraphQL Endpoint IDOR",
+    "JSON Hijacking",
+    "Swagger/Docs Exposure",
+    "Replay Attacks (No nonce/timestamp)",
+    "Unrestricted File Upload via API",
+    "API Cache Poisoning",
+    "Unauthenticated API Access",
+    "Abuse of Batch Request APIs",
+    "Over-Permissioned Tokens",
+    "WebSocket Security in API",
+
+    "📱 Mobile App Security Testing",
+    "Insecure Local Storage (Shared Prefs, SQLite, Keychain)",
+    "Unencrypted Network Traffic (HTTP)",
+    "SSL Pinning Misconfigured or Bypassed",
+    "Debuggable Build Enabled",
+    "Reverse Engineering (APK/IPA/Dex/Smali)",
+    "Sensitive Data in System/Crash Logs",
+    "Leakage via Screen Capture/Snapshot",
+    "Insecure Intent Handling / Intent Sniffing",
+    "Bypass Root/Jailbreak Detection",
+    "Exported Activity/Services/Broadcasts",
+    "Runtime Hooking (Frida/Xposed Detection)",
+    "Hardcoded Secrets/API Keys in App",
+    "Insecure Deeplinks / URL Schemes",
+    "Sensitive Data Leaked to Clipboard",
+    "WebView Misuse (JavaScript Injection, File Access)",
+    "Backup Enabled for Sensitive Data",
+    "Injection via Autofill or Paste Events",
+    "Accessing Root Files/System Resources",
+    "SSL/TLS Disabled in Some Components",
+    "Insecure Authentication Flow (Tokens, OTPs)",
+
+    "📡 IoT Device Security Testing",
+    "Physical Access (JTAG, UART, SWD, Debug Ports)",
+    "Firmware Extraction & Analysis (Binwalk, strings, Ghidra)",
+    "Cleartext Credentials or API Keys in Firmware",
+    "Unsigned/Unencrypted Firmware Updates",
+    "Exposed Network Services (Telnet, FTP, Web UI, SSH)",
+    "Web Interface Authentication & Session Handling",
+    "Cloud API & Mobile App Communication Security",
+    "Bluetooth/BLE Vulnerabilities (Unauthenticated Pairing, Sniffing)",
+    "Zigbee/Z-Wave/NFC/WiFi Attack Surface",
+    "Default Credentials or Hardcoded Logins",
+    "Access via Serial Interfaces (Bootloader/Recovery)",
+    "Insecure Boot Process / No Secure Boot",
+    "Open Ports Enumeration & Exploitation",
+    "Use of Weak or Custom Encryption Protocols",
+    "Buffer Overflows or Memory Corruption (Stack/Heap)",
+    "Hardcoded SSL Certificates or Private Keys",
+    "Insecure Mobile App Integration with IoT Device",
+    "Debug Logs or Verbose Output Enabled in Prod",
+    "LFI/RCE/Command Injection in Device Web Server",
+    "Certificate Pinning Implemented/Bypassable",
+
+    "🌐 Network Security Testing",
+    "Perform Active & Passive Reconnaissance",
+    "Port & Service Scanning (Nmap, Masscan, Rustscan)",
+    "Enumerate Services (SMB, RDP, FTP, SNMP, RPC)",
+    "Test for Default Credentials on Services",
+    "Packet Sniffing & Traffic Analysis (Wireshark, tcpdump)",
+    "Man-in-the-Middle (MITM) Attacks (ARP Spoofing, DNS Poisoning)",
+    "Run Vulnerability Scanners (Nessus, OpenVAS, Nexpose)",
+    "Attempt Firewall, IDS/IPS Evasion (Fragmentation, Encoding)",
+    "Check for Lateral Movement & Pivoting (proxychains, socks5)",
+    "Wi-Fi Attacks (WPA2 Cracking, Evil Twin, Deauth, Rogue AP)",
+    "Rogue DHCP Server Setup & Poisoning",
+    "DNS Tunneling & Exfiltration Techniques",
+    "VPN Exposure & Split-Tunnel Testing",
+    "SMB Relay Attacks (NTLMv1/v2 Capture, Pass-the-Hash)",
+    "Broadcast Protocol Enumeration (LLMNR, NBNS, mDNS)",
+    "Test SNMP (v1/v2) for Community String Bruteforce",
+    "Insecure Protocol Use (Telnet, FTP, Rlogin)",
+    "SSL/TLS Misconfigurations (Weak Ciphers, Expired Certs)",
+    "ICMP Tunneling (Data Exfil via Ping)",
+    "Misconfigured Proxies (open SOCKS, open HTTP)"
+    ];
+
+    function renderChecklist() {
+      const container = document.getElementById("checklist");
+      container.innerHTML = '';
+      const saved = JSON.parse(localStorage.getItem("checklist") || '{}');
+      checklistItems.forEach((item, i) => {
+        const id = `item-${i}`;
+        const checked = saved[id] ? 'checked' : '';
+        container.innerHTML += `<label class="block cursor-pointer"><input type="checkbox" id="${id}" ${checked} class="mr-2">${item}</label>`;
+      });
+
+      checklistItems.forEach((_, i) => {
+        const checkbox = document.getElementById(`item-${i}`);
+        checkbox.addEventListener('change', saveChecklist);
+      });
+    }
+
+    function saveChecklist() {
+      const saved = {};
+      checklistItems.forEach((_, i) => {
+        const id = `item-${i}`;
+        saved[id] = document.getElementById(id).checked;
+      });
+      localStorage.setItem("checklist", JSON.stringify(saved));
+    }
+
+    let bugList = JSON.parse(localStorage.getItem("bugs") || "[]");
+
+    function saveBugs() {
+      localStorage.setItem("bugs", JSON.stringify(bugList));
+      renderBugs();
+    }
+
+    function addBug() {
+      const title = document.getElementById("bugTitle").value.trim();
+      const desc = document.getElementById("bugDescription").value.trim();
+      if (!title || !desc) return alert("Please fill in both fields.");
+      bugList.push({ title, desc, tested: false });
+      document.getElementById("bugTitle").value = '';
+      document.getElementById("bugDescription").value = '';
+      saveBugs();
+    }
+
+    function toggleTested(index) {
+      bugList[index].tested = !bugList[index].tested;
+      saveBugs();
+    }
+
+    function deleteBug(index) {
+      if (confirm("Delete this record?")) {
+        bugList.splice(index, 1);
+        saveBugs();
+      }
+    }
+
+    function resetTested() {
+      if (confirm("Mark all as untested?")) {
+        bugList.forEach(bug => bug.tested = false);
+        saveBugs();
+      }
+    }
+
+    function clearAll() {
+      if (confirm("Clear all records?")) {
+        bugList = [];
+        saveBugs();
+      }
+    }
+
+    const notesBox = document.getElementById("notesBox");
+    notesBox.value = localStorage.getItem("notes") || "";
+
+    function debounce(func, delay) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+
+    notesBox.addEventListener('input', debounce(() => {
+      localStorage.setItem("notes", notesBox.value);
+    }, 500));
+
+    function exportBugs() {
+      const blob = new Blob([JSON.stringify(bugList, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "bug_tracker_data.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importBugs(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (Array.isArray(data)) {
+            bugList = data;
+            saveBugs();
+          } else {
+            alert("Invalid format");
+          }
+        } catch {
+          alert("Failed to import JSON");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function renderBugs() {
+      const container = document.getElementById("bugsContainer");
+      container.innerHTML = '';
+      bugList.forEach((bug, i) => {
+        container.innerHTML += `
+          <div class="border-l-4 p-4 ${bug.tested ? 'bg-green-100 border-green-500' : 'bg-white border-gray-300'}">
+            <h3 class="text-lg font-semibold">${bug.title}</h3>
+            <p>${bug.desc}</p>
+            <div class="mt-2 space-x-2">
+              <button onclick="toggleTested(${i})" class="px-3 py-1 rounded ${bug.tested ? 'bg-gray-600' : 'bg-green-600'} hover:opacity-90 text-white text-sm">
+                ${bug.tested ? 'Mark Untested' : 'Mark Tested'}
+              </button>
+              <button onclick="deleteBug(${i})" class="bg-red-600 hover:bg-red-700 transition text-white px-3 py-1 rounded text-sm">Delete</button>
+            </div>
+          </div>`;
+      });
+    }
+
+    renderChecklist();
+    renderBugs();
+  </script>
+<footer class="text-center mt-5 py-4" style="background-color: #f8f9fa; border-top: 1px solid #dee2e6;">
+  <p class="mb-1" style="font-size: 1.1rem;">
+    🚀 Made with <span style="color: #e25555;">❤️</span> by 
+    <a href="https://github.com/nemocyberworld/" target="_blank" style="text-decoration: none; font-weight: 600;">Captain Nemo</a>
+  </p>
+  <p class="mb-0" style="font-size: 0.95rem;">
+    🌐 Powered by 
+    <a href="https://hacktolive.net" target="_blank" style="text-decoration: none; font-weight: 600;">HackToLive</a>
+  </p>
+</footer>
+
+
+</body>
+</html>
