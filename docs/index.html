@@ -21,17 +21,18 @@
       <div class="mb-4">
         <input id="bugTitle" type="text" placeholder="Vulnerability Title" class="border rounded px-4 py-2 w-full mb-2" />
         <textarea id="bugDescription" placeholder="Details, payloads, etc." class="border rounded px-4 py-2 w-full mb-2" rows="3"></textarea>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <button onclick="addBug()" class="bg-blue-600 hover:bg-blue-700 transition text-white px-4 py-2 rounded">Add Finding</button>
           <button onclick="exportBugs()" class="bg-green-600 hover:bg-green-700 transition text-white px-4 py-2 rounded">Export</button>
-          <label class="bg-yellow-500 hover:bg-yellow-600 transition text-white px-4 py-2 rounded cursor-pointer">
-            Import <input type="file" class="hidden" onchange="importBugs(event)">
+          <label class="relative inline-flex items-center bg-yellow-500 hover:bg-yellow-600 transition text-white px-4 py-2 rounded cursor-pointer">
+            <span>Import</span>
+            <input type="file" class="absolute inset-0 opacity-0 cursor-pointer" onchange="importBugs(event)" />
           </label>
           <button onclick="resetTested()" class="bg-gray-600 hover:bg-gray-700 transition text-white px-4 py-2 rounded">Reset Progress</button>
           <button onclick="clearAll()" class="bg-red-600 hover:bg-red-700 transition text-white px-4 py-2 rounded">Clear All</button>
         </div>
       </div>
-      <div id="bugsContainer" class="space-y-4"></div>
+      <div id="bugsContainer" class="space-y-4 whitespace-pre-wrap break-words font-mono text-sm"></div>
     </main>
 
     <!-- Notes Sidebar -->
@@ -418,7 +419,6 @@
         const checked = saved[id] ? 'checked' : '';
         container.innerHTML += `<label class="block cursor-pointer"><input type="checkbox" id="${id}" ${checked} class="mr-2">${item}</label>`;
       });
-
       checklistItems.forEach((_, i) => {
         const checkbox = document.getElementById(`item-${i}`);
         checkbox.addEventListener('change', saveChecklist);
@@ -477,21 +477,6 @@
       }
     }
 
-    const notesBox = document.getElementById("notesBox");
-    notesBox.value = localStorage.getItem("notes") || "";
-
-    function debounce(func, delay) {
-      let timeout;
-      return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), delay);
-      };
-    }
-
-    notesBox.addEventListener('input', debounce(() => {
-      localStorage.setItem("notes", notesBox.value);
-    }, 500));
-
     function exportBugs() {
       const blob = new Blob([JSON.stringify(bugList, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -526,34 +511,67 @@
       const container = document.getElementById("bugsContainer");
       container.innerHTML = '';
       bugList.forEach((bug, i) => {
-        container.innerHTML += `
-          <div class="border-l-4 p-4 ${bug.tested ? 'bg-green-100 border-green-500' : 'bg-white border-gray-300'}">
-            <h3 class="text-lg font-semibold">${bug.title}</h3>
-            <p>${bug.desc}</p>
-            <div class="mt-2 space-x-2">
-              <button onclick="toggleTested(${i})" class="px-3 py-1 rounded ${bug.tested ? 'bg-gray-600' : 'bg-green-600'} hover:opacity-90 text-white text-sm">
-                ${bug.tested ? 'Mark Untested' : 'Mark Tested'}
-              </button>
-              <button onclick="deleteBug(${i})" class="bg-red-600 hover:bg-red-700 transition text-white px-3 py-1 rounded text-sm">Delete</button>
-            </div>
-          </div>`;
+        const bugDiv = document.createElement("div");
+        bugDiv.className = `border-l-4 p-4 ${bug.tested ? 'bg-green-100 border-green-500' : 'bg-white border-gray-300'}`;
+
+        const title = document.createElement("h3");
+        title.className = "text-lg font-semibold";
+        title.textContent = bug.title;
+
+        const desc = document.createElement("pre");
+        desc.className = "whitespace-pre-wrap break-words text-sm mt-1";
+        desc.textContent = bug.desc;
+
+        const actions = document.createElement("div");
+        actions.className = "mt-2 space-x-2 flex flex-wrap";
+
+        const toggleBtn = document.createElement("button");
+        toggleBtn.className = `px-3 py-1 rounded text-white text-sm transition ${bug.tested ? 'bg-gray-600 hover:bg-gray-700' : 'bg-green-600 hover:bg-green-700'}`;
+        toggleBtn.textContent = bug.tested ? 'Mark Untested' : 'Mark Tested';
+        toggleBtn.addEventListener("click", () => toggleTested(i));
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "bg-red-600 hover:bg-red-700 transition text-white px-3 py-1 rounded text-sm";
+        deleteBtn.textContent = "Delete";
+        deleteBtn.addEventListener("click", () => deleteBug(i));
+
+        actions.appendChild(toggleBtn);
+        actions.appendChild(deleteBtn);
+
+        bugDiv.appendChild(title);
+        bugDiv.appendChild(desc);
+        bugDiv.appendChild(actions);
+
+        container.appendChild(bugDiv);
       });
     }
+
+    const notesBox = document.getElementById("notesBox");
+    notesBox.value = localStorage.getItem("notes") || "";
+    function debounce(func, delay) {
+      let timeout;
+      return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+    notesBox.addEventListener('input', debounce(() => {
+      localStorage.setItem("notes", notesBox.value);
+    }, 500));
 
     renderChecklist();
     renderBugs();
   </script>
-<footer class="text-center mt-5 py-4" style="background-color: #f8f9fa; border-top: 1px solid #dee2e6;">
-  <p class="mb-1" style="font-size: 1.1rem;">
-    🚀 Made with <span style="color: #e25555;">❤️</span> by 
-    <a href="https://github.com/nemocyberworld/" target="_blank" style="text-decoration: none; font-weight: 600;">Captain Nemo</a>
-  </p>
-  <p class="mb-0" style="font-size: 0.95rem;">
-    🌐 Powered by 
-    <a href="https://hacktolive.net" target="_blank" style="text-decoration: none; font-weight: 600;">HackToLive</a>
-  </p>
-</footer>
 
-
+  <footer class="text-center mt-5 py-4 bg-gray-100 border-t border-gray-300">
+    <p class="mb-1 text-lg">
+      🚀 Made with <span class="text-red-500">❤️</span> by 
+      <a href="https://github.com/nemocyberworld/" target="_blank" class="font-semibold">Captain Nemo</a>
+    </p>
+    <p class="text-sm">
+      🌐 Powered by 
+      <a href="https://hacktolive.net" target="_blank" class="font-semibold">HackToLive</a>
+    </p>
+  </footer>
 </body>
 </html>
